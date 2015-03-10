@@ -22,7 +22,6 @@ data ArareSequencerBase o i a where
   GetInstrumentSequenceTime :: ArareSequencerBase o i SequenceTime
   PutInstrumentSequenceTime :: SequenceTime -> ArareSequencerBase o i ()
   SendInstrumentMessage :: i -> ArareSequencerBase o i ()
-  ArareFromScore :: Score () -> ArareSequencerBase o i ()
 
 ----
 
@@ -36,9 +35,6 @@ putInstrumentSequenceTime = singleton . PutInstrumentSequenceTime
 
 sendInstrumentMessage :: i -> ArareSequencer i ()
 sendInstrumentMessage = singleton . SendInstrumentMessage
-
-score :: Score () -> ArareSequencer i ()
-score = singleton . ArareFromScore
 
 instance MonadState SequenceTime (ArareSequencer i) where
   get = getInstrumentSequenceTime
@@ -65,61 +61,53 @@ data Note = Note
 data SequenceTime
 type NoteLength = Int
 
-data ScoreBase a where
-  WriteNote :: Note -> NoteLength -> ScoreBase ()
-  GetSequenceTime :: ScoreBase SequenceTime
-  PutSequenceTime :: SequenceTime -> ScoreBase ()
-
-type Score = Program ScoreBase 
-
-writeNote :: Note -> NoteLength -> Score ()
-writeNote n = singleton . WriteNote n
-
-getSequenceTime :: Score SequenceTime
-getSequenceTime = singleton $ GetSequenceTime
-
-petSequenceTime :: SequenceTime -> Score ()
-petSequenceTime = singleton . PutSequenceTime
-
---------
-
-c :: Int -> Float -> Score ()
-c = undefined
-
-d :: Int -> Float -> Score ()
-d = undefined
-
-e :: Int -> Float -> Score ()
-e = undefined
-
-f :: Int -> Float -> Score ()
-f = undefined
-
-g :: Int -> Float -> Score ()
-g = undefined
-
 --------
 
 class Sequencable s where
-
-instance Sequencable (Float -> Score ()) where
-instance Sequencable (Int -> Float -> Score ()) where
-instance Sequencable (Score ()) where
-
-infixl 9 ==>
-(==>) :: (Sequencable a, Sequencable b) => a -> b -> Score ()
-(==>) = undefined
+  c :: s
+  d :: s
+  e :: s
+  f :: s
+  g :: s
+  a :: s
+  b :: s
 
 --------
--- test code
 
 data SinOscillator
 
-test :: ArareSequencer i ()
+instance Sequencable (Int -> ArareSequencer SinOscillator a) where
+  c = undefined 
+  d = undefined 
+  e = undefined 
+  f = undefined 
+  g = undefined 
+  a = undefined 
+  b = undefined 
+instance Sequencable (Int -> Float -> ArareSequencer SinOscillator a) where
+  c = undefined 
+  d = undefined 
+  e = undefined 
+  f = undefined 
+  g = undefined 
+  a = undefined 
+  b = undefined 
+instance Sequencable (ArareSequencer SinOscillator a) where
+  c = undefined 
+  d = undefined 
+  e = undefined 
+  f = undefined 
+  g = undefined 
+  a = undefined 
+  b = undefined 
+
+i2 :: Int
+i2 = 2
+
+test :: ArareSequencer SinOscillator ()
 test = do
-  score $ do 
-   -- さ〜い〜た〜さ〜い〜た〜
-   c ==> d ==> e 2 ==> c ==> d ==> e 2
-   -- ちゅ〜りっぷ〜の〜は〜な〜が〜
-   g ==> e ==> d ==> c ==> d ==> e ==> d 2
+ -- さ〜い〜た〜さ〜い〜た〜
+ c >> d >> e i2 >> c >> d >> e i2
+ -- ちゅ〜りっぷ〜の〜は〜な〜が〜
+ g >> e >> d >> c >> d >> e >> d i2
 
