@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Sound.Arare.ArareDSL where
 import Control.Monad.Operational
@@ -13,15 +13,6 @@ import Data.Ratio
 -- ArareSequencer : トラックを記述する
 
 data SequenceTime
-
-class NoteController n where
-  noteOn :: Note -> n
-  noteOff :: Note -> n
-
-class BendController b where
-  bendKey :: Note -> b
-
-class (NoteController i, BendController i) => Instrument i where
 
 data ArareSequencerBase o i a where
   GetInstrumentSequenceTime :: ArareSequencerBase o i SequenceTime
@@ -46,17 +37,6 @@ instance MonadState SequenceTime (ArareSequencer i) where
   put = putInstrumentSequenceTime  
 
 --------
--- ArareWaveBase : 波形データを直接操作する
-
-data ArareWaveBase where
-
---------
--- ArareMixer : 各パートをミキシングする
-
-data ArareMixer where
-
---------
--- Sequencable : シーケンサ本体
 
 newtype NoteLength = NoteLength Rational deriving (Show, Read, Eq, Ord, Num)
 l1 = NoteLength $ 1 % 1
@@ -84,11 +64,16 @@ v0 = v 0.0
 
 data NoteScale
   = NoteC
+  | NoteCS
   | NoteD
+  | NoteDS
   | NoteE
   | NoteF
+  | NoteFS
   | NoteG
+  | NoteGS
   | NoteA
+  | NoteAS
   | NoteB
 data Note = Note
   { noteScale :: NoteScale
@@ -96,57 +81,65 @@ data Note = Note
   , noteVelocity :: NoteVelocity
   } 
 
-makeNote :: Maybe NoteLength -> Maybe NoteVelocity -> NoteScale -> ArareSequencer s ()
-makeNote = undefined
+class NoteController c where
+  noteOn :: Note -> c
+  noteOff :: Note -> c
 
-class Sequencable s where
+class DslNoteController s where
   c :: s
+  cs :: s
   d :: s
+  ds :: s
   e :: s
   f :: s
+  fs :: s
   g :: s
+  gs :: s
   a :: s
+  as :: s
   b :: s
+
+  df :: s
+  df = cs
+  ef :: s
+  ef = ds
+  gf :: s
+  gf = fs
+  af :: s
+  af = gs
+  bf :: s
+  bf = as
+
+class Monad n => MonadNoteController n where
+  getNoteLength :: n NoteLength
+  putNoteLength :: NoteLength -> n ()
+  getNoteVelocity :: n NoteVelocity
+  putNoteVelocity :: NoteVelocity -> n ()
+
+makeNote :: (MonadNoteController (ArareSequencer s), NoteController s)
+  => Maybe NoteLength -> Maybe NoteVelocity -> NoteScale -> ArareSequencer s ()
+makeNote l v s = let
+    judge :: ArareSequencer s a -> Maybe a -> ArareSequencer s a
+    judge f v = do 
+      x <- f
+      return $ maybe x id v
+  in do
+    nl <- judge getNoteLength l
+    nv <- judge getNoteVelocity v
+    sendInstrumentMessage . noteOn $ Note s nl nv
+    -- TODO : 時間調整
+    sendInstrumentMessage . noteOff $ Note s nl nv
 
 infixl 9 .>
 (.>) :: Monad m => m () -> m () -> m ()
 (.>) = (>>)
 
 --------
--- TODO : ここより下、そのうち削除
+-- ArareWaveBase : 波形データを直接操作する
 
-data SinOscillator
+data ArareWaveBase where
 
-instance Sequencable (NoteLength -> NoteVelocity -> ArareSequencer SinOscillator ()) where
-  c l v = makeNote (Just l) (Just v) NoteC
-  d l v = makeNote (Just l) (Just v) NoteD
-  e l v = makeNote (Just l) (Just v) NoteE
-  f l v = makeNote (Just l) (Just v) NoteF
-  g l v = makeNote (Just l) (Just v) NoteG
-  a l v = makeNote (Just l) (Just v) NoteA
-  b l v = makeNote (Just l) (Just v) NoteB
-instance Sequencable (NoteLength -> ArareSequencer SinOscillator ()) where
-  c l = makeNote (Just l) Nothing NoteC
-  d l = makeNote (Just l) Nothing NoteD
-  e l = makeNote (Just l) Nothing NoteE
-  f l = makeNote (Just l) Nothing NoteF
-  g l = makeNote (Just l) Nothing NoteG
-  a l = makeNote (Just l) Nothing NoteA
-  b l = makeNote (Just l) Nothing NoteB
-instance Sequencable (ArareSequencer SinOscillator ()) where
-  c = makeNote Nothing Nothing NoteC
-  d = makeNote Nothing Nothing NoteD
-  e = makeNote Nothing Nothing NoteE
-  f = makeNote Nothing Nothing NoteF
-  g = makeNote Nothing Nothing NoteG
-  a = makeNote Nothing Nothing NoteA
-  b = makeNote Nothing Nothing NoteB
+--------
+-- ArareMixer : 各パートをミキシングする
 
-----
-
-test :: ArareSequencer SinOscillator ()
-test = do
-  -- さ〜い〜た〜さ〜い〜た〜
-  c .> d .> e l2 .> c .> d .> e l2
-  -- ちゅ〜りっぷ〜の〜は〜な〜が〜
-  g .> e .> d .> c .> d .> e .> d l2
+data ArareMixer where
